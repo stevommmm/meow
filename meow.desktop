@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=meow
+Comment=meow
+Exec=meow
+TryExec=meow
+Type=Application
+DesktopNames=meow
+Keywords=tiling;wm;windowmanager;window;manager;
