@@ -42,7 +42,7 @@ unsigned long get_wm_pid(Display *d, Window window) {
     unsigned char * win_pid;
     XGetWindowProperty(d, window, wm_pid, 0, 1, False, XA_CARDINAL,
                              &dump_atom, &dump_int, &dump_long, &dump_long, &win_pid);
-    return *((unsigned long *)win_pid) | 0;
+    return ((unsigned long) win_pid) | 0l;
 }
 
 void set_wm_index(Display *d, Window window, int window_index) {
@@ -86,6 +86,8 @@ void ws_add_keybind(Display *d, Window root, int index) {
 int xerror() { return 0; }
 
 int main(void) {
+    signal(SIGCHLD, SIG_IGN);
+
     Display          *dpy;
     Window            root;
     int               screen;
@@ -249,7 +251,6 @@ int main(void) {
                         if (pid != 0) {
                             kill(pid, SIGKILL);
                         }
-
                     }
                     printf("Q key handled\n");
                     break;
