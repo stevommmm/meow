@@ -1,4 +1,4 @@
-meow is an expansion of [TinyWM](https://github.com/mackstann/tinywm) that adds workspaces,keybinds and some misc ease of life functionality.
+`meow` is an expansion of [TinyWM](https://github.com/mackstann/tinywm) that adds workspaces, keybinds and some misc ease of life functionality.
 
 
 Usage:
@@ -13,7 +13,6 @@ Usage:
   - `Mod` + `2`: Switch to workspace 2
   - `Mod` + `Shift` + `1`: Assign window to workspace 1
   - `Mod` + `Shift` + `2`: Assign window to workspace 2
-
 
 
 Development:

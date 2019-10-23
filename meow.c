@@ -250,14 +250,18 @@ int main(void) {
                     break;
                 case XK_q:
                     if (ev.xkey.subwindow != None) {
+                        // Be polite and try to tell programs to exit
                         int pid = get_wm_pid(dpy, ev.xkey.subwindow);
                         XDestroyWindow(dpy, ev.xkey.subwindow);
                         XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
+                        XSync(dpy, False);
                         if (pid != 0) {
-                            kill(pid, SIGKILL);
+                            kill(pid, SIGTERM);
+                        } else {
+                            // If it's remote or something dumb... death
+                            XKillClient(dpy, ev.xkey.subwindow);
                         }
                     }
-                    printf("Q key handled\n");
                     break;
 
             }
