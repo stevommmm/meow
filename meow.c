@@ -9,6 +9,12 @@
 #include <stdio.h>
 #include <assert.h>
 
+struct keybind {
+    unsigned int mod;
+    KeySym keysym;
+    const char** com;
+};
+
 #include "config.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -94,10 +100,8 @@ int main(void) {
 
     // Window borders
     Colormap screen_colormap = DefaultColormap(dpy, screen);
-    XColor border_active;
-    XColor border_inactive;
-    XAllocNamedColor(dpy, screen_colormap, WIN_BORDER_ACTIVE, &border_active, &border_active);
-    XAllocNamedColor(dpy, screen_colormap, WIN_BORDER_INACTIVE, &border_inactive, &border_inactive);
+    XColor border;
+    XAllocNamedColor(dpy, screen_colormap, WIN_BORDER_COLOR, &border, &border);
 
     // Hook requests for child windows of the root so we can set entry masks
     XSelectInput(dpy,  root, SubstructureRedirectMask);
@@ -115,6 +119,9 @@ int main(void) {
     for (int i=1; i < 10; i++) {
         ws_add_keybind(dpy, root, i);
     }
+
+    // Set up a key to close windows
+    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_q), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
 
 
     /* XGrabKey and XGrabButton are basically ways of saying "when this
@@ -198,8 +205,6 @@ int main(void) {
         else if(ev.type == KeyPress) {
             KeySym keysym = XKeycodeToKeysym(dpy, ev.xkey.keycode, 0);
 
-            printf("Got bind key %s\n", XKeysymToString(keysym));
-
             // Check workspace key bindings
             switch(keysym) {
                 case XK_0:
@@ -223,6 +228,12 @@ int main(void) {
                         display_workspace(dpy, root, atoi(XKeysymToString(keysym)));
                     }
                     break;
+                case XK_q:
+                    if (ev.xkey.subwindow != None){
+                        XDestroyWindow(dpy, ev.xkey.subwindow);
+                    }
+                    break;
+
             }
 
             // Check our list of bind keys from config.h and exec stuff
@@ -236,24 +247,9 @@ int main(void) {
             // Exhaust enter events in case of mass updates
             while(XCheckTypedEvent(dpy, EnterNotify, &ev));
 
-            // Set active border color
-            if (WIN_BORDER_WIDTH > 0) {
-                XSetWindowBorderWidth(dpy, ev.xcrossing.window, WIN_BORDER_WIDTH);
-                XSetWindowBorder(dpy, ev.xcrossing.window, border_active.pixel);
-            }
-
             // Focus windows and raise them when we mouseover
             XSetInputFocus(dpy, ev.xcrossing.window, RevertToParent, CurrentTime);
             XRaiseWindow(dpy, ev.xcrossing.window);
-        }
-        else if(ev.type == LeaveNotify) {
-            // Exhaust enter events in case of mass updates
-            while(XCheckTypedEvent(dpy, LeaveNotify, &ev));
-
-            // Set active border color
-            if (WIN_BORDER_WIDTH > 0 && ev.xcrossing.window != None) {
-                XSetWindowBorder(dpy, ev.xcrossing.window, border_inactive.pixel);
-            }
         }
         else if(ev.type == MapRequest) {
             // Set the current workspace as the WM_INDEX prop on the window
@@ -263,11 +259,11 @@ int main(void) {
 
             if (WIN_BORDER_WIDTH > 0) {
                 XSetWindowBorderWidth(dpy, ev.xmaprequest.window, WIN_BORDER_WIDTH);
-                XSetWindowBorder(dpy, ev.xmaprequest.window, border_active.pixel);
+                XSetWindowBorder(dpy, ev.xmaprequest.window, border.pixel);
             }
 
             // Register ourselves for entry events for the window - allows us to surface it on mouseover
-            XSelectInput(dpy, ev.xmaprequest.window, EnterWindowMask|LeaveWindowMask);
+            XSelectInput(dpy, ev.xmaprequest.window, EnterWindowMask);
             XMapWindow(dpy, ev.xmaprequest.window);
         } else {
             printf("Unhandled event with type %d\n", ev.type);
