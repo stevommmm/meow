@@ -35,6 +35,7 @@ int get_wm_index(Display *d, Window window) {
     return win_id[0] | 0;
 }
 
+
 unsigned long get_wm_pid(Display *d, Window window) {
     Atom            dump_atom;
     int             dump_int;
@@ -44,6 +45,7 @@ unsigned long get_wm_pid(Display *d, Window window) {
                              &dump_atom, &dump_int, &dump_long, &dump_long, &win_pid);
     return ((unsigned long) win_pid) | 0l;
 }
+
 
 void set_wm_index(Display *d, Window window, int window_index) {
     XChangeProperty(d, window, wm_index,
@@ -78,12 +80,15 @@ void run_keybind(Display *d, const char **program) {
     execvp((char*)program[0], (char**)program);
 }
 
+
 void ws_add_keybind(Display *d, Window root, int index) {
     XGrabKey(d, XKeysymToKeycode(d, XK_0 + index), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
     XGrabKey(d, XKeysymToKeycode(d, XK_0 + index), Mod4Mask|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
 }
 
+
 int xerror() { return 0; }
+
 
 int main(void) {
     signal(SIGCHLD, SIG_IGN);
