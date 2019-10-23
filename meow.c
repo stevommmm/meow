@@ -22,16 +22,27 @@ struct keybind {
 
 Atom wm_index;
 Atom wm_name;
+Atom wm_pid;
 
 
 int get_wm_index(Display *d, Window window) {
     Atom            dump_atom;
     int             dump_int;
     unsigned long   dump_long;
-    unsigned char * r_fullscreen;
+    unsigned char * win_id;
     XGetWindowProperty(d, window, wm_index, 0, 1, False, XA_INTEGER,
-                             &dump_atom, &dump_int, &dump_long, &dump_long, &r_fullscreen);
-    return r_fullscreen[0] | 0;
+                             &dump_atom, &dump_int, &dump_long, &dump_long, &win_id);
+    return win_id[0] | 0;
+}
+
+unsigned long get_wm_pid(Display *d, Window window) {
+    Atom            dump_atom;
+    int             dump_int;
+    unsigned long   dump_long;
+    unsigned char * win_pid;
+    XGetWindowProperty(d, window, wm_pid, 0, 1, False, XA_CARDINAL,
+                             &dump_atom, &dump_int, &dump_long, &dump_long, &win_pid);
+    return *((unsigned long *)win_pid) | 0;
 }
 
 void set_wm_index(Display *d, Window window, int window_index) {
@@ -72,6 +83,7 @@ void ws_add_keybind(Display *d, Window root, int index) {
     XGrabKey(d, XKeysymToKeycode(d, XK_0 + index), Mod4Mask|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
 }
 
+int xerror() { return 0; }
 
 int main(void) {
     Display          *dpy;
@@ -83,12 +95,12 @@ int main(void) {
      * move/resize.
      */
     XButtonEvent start;
-
     XEvent ev;
 
     /* return failure status if we can't connect */
     if(!(dpy = XOpenDisplay(NULL))) return 1;
 
+    XSetErrorHandler(xerror);
     screen = DefaultScreen(dpy);
     root  = RootWindow(dpy, screen);
 
@@ -97,6 +109,7 @@ int main(void) {
     int window_index;
     wm_index = XInternAtom(dpy, "WM_INDEX", False);
     wm_name = XInternAtom(dpy, "WM_NAME", False);
+    wm_pid = XInternAtom(dpy, "_NET_WM_PID", True);
 
     // Window borders
     Colormap screen_colormap = DefaultColormap(dpy, screen);
@@ -229,9 +242,16 @@ int main(void) {
                     }
                     break;
                 case XK_q:
-                    if (ev.xkey.subwindow != None){
+                    if (ev.xkey.subwindow != None) {
+                        int pid = get_wm_pid(dpy, ev.xkey.subwindow);
                         XDestroyWindow(dpy, ev.xkey.subwindow);
+                        XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
+                        if (pid != 0) {
+                            kill(pid, SIGKILL);
+                        }
+
                     }
+                    printf("Q key handled\n");
                     break;
 
             }
