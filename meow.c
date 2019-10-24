@@ -9,12 +9,6 @@
 #include <stdio.h>
 #include <assert.h>
 
-struct keybind {
-    unsigned int mod;
-    KeySym keysym;
-    const char** com;
-};
-
 #include "config.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))

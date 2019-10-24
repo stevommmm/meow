@@ -1,6 +1,6 @@
 CC = gcc
 PACKAGES = x11
-CFLAGS = -g -Wall -Wextra -pedantic -Wno-deprecated-declarations $(shell pkg-config $(PACKAGES) --cflags --libs)
+CFLAGS = -std=c11 -g -Wall -Wextra -pedantic -Wno-deprecated-declarations $(shell pkg-config $(PACKAGES) --cflags --libs)
 ifdef SANATIZE_ADDRESS
 	CFLAGS += -fsanitize=address -fno-omit-frame-pointer
 endif
@@ -8,10 +8,13 @@ BINARY = meow
 
 all: $(BINARY)
 
+config.h:
+	cp config.def.h config.h
+
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BINARY): $(wildcard *.c)
+$(BINARY): config.h $(wildcard *.c)
 	$(CC) $(CFLAGS) -o $@ $^
 
 install: all
