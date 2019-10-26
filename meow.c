@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <time.h>
 #include <assert.h>
 
 #include "config.h"
@@ -17,6 +18,23 @@
 Atom wm_index;
 Atom wm_name;
 Atom wm_pid;
+
+
+void gen_component_colors(Display *d, Colormap cm, XColor *border, XColor *bg) {
+    srand(time(NULL));
+    border->red = rand() % 65536;
+    border->green = rand() % 65536;
+    border->blue = rand() % 65536;
+    border->flags = DoRed|DoGreen|DoBlue;
+    printf("%i,%i,%i\n", border->red, border->green, border->blue);
+    XAllocColor(d, cm, border);
+
+    bg->red = (border->red + 32768)  % 65536;
+    bg->green = (border->green + 23768) % 65536;
+    bg->blue = (border->blue + 23768) % 65536;
+    bg->flags = DoRed|DoGreen|DoBlue;
+    XAllocColor(d, cm, bg);
+}
 
 
 int get_wm_index(Display *d, Window window) {
@@ -60,7 +78,7 @@ void display_workspace(Display *d, Window root, int workspace_index) {
             XMapWindow(d, w_tree[i]);
         }
     }
-    if (w_count > 0) {
+    if (w_tree) {
         XFree(w_tree);
     }
 }
@@ -115,7 +133,11 @@ int main(void) {
     // Window borders
     Colormap screen_colormap = DefaultColormap(dpy, screen);
     XColor border;
-    XAllocNamedColor(dpy, screen_colormap, WIN_BORDER_COLOR, &border, &border);
+    XColor bg;
+    gen_component_colors(dpy, screen_colormap, &border, &bg);
+    // XAllocNamedColor(dpy, screen_colormap, WIN_BORDER_COLOR, &border, &borde
+    XSetWindowBackground(dpy, root, bg.pixel);
+    XClearWindow(dpy, root);
 
     // Hook requests for child windows of the root so we can set entry masks
     XSelectInput(dpy,  root, SubstructureRedirectMask);
