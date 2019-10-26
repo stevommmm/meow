@@ -13,7 +13,7 @@
 #include "config.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-
+#define NumLockMask Mod2Mask
 
 Atom wm_index;
 Atom wm_name;
@@ -93,9 +93,29 @@ void run_keybind(Display *d, const char **program) {
 }
 
 
+int matches_w_numlock(unsigned int pressed, unsigned int mods) {
+    return mods == pressed || (mods|NumLockMask) == pressed;
+}
+
+void bind_button(Display *d, Window root, int button, unsigned int mods) {
+    XGrabButton(d, button, mods, root, True,
+            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    XGrabButton(d, button, mods|NumLockMask, root, True,
+            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+}
+
+
+// Bind keyboard with mods, also with num lock
+void bind_key(Display *d, Window root, KeySym keysym, unsigned int mods) {
+    KeyCode c = XKeysymToKeycode(d, keysym);
+    XGrabKey(d, c, mods, root, True, GrabModeAsync, GrabModeAsync);
+    XGrabKey(d, c, mods|NumLockMask, root, True, GrabModeAsync, GrabModeAsync);
+}
+
+
 void ws_add_keybind(Display *d, Window root, int index) {
-    XGrabKey(d, XKeysymToKeycode(d, XK_0 + index), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
-    XGrabKey(d, XKeysymToKeycode(d, XK_0 + index), Mod4Mask|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+    bind_key(d, root, XK_0 + index, Mod4Mask);
+    bind_key(d, root, XK_0 + index, Mod4Mask|ShiftMask);
 }
 
 
@@ -146,18 +166,17 @@ int main(void) {
 
     // Iterate our config.h keybinds and register for notifications
     for (unsigned int i=0; i < sizeof(keybinds)/sizeof(*keybinds); ++i) {
-        XGrabKey(dpy, XKeysymToKeycode(dpy, keybinds[i].keysym), keybinds[i].mod,
-                 root, True, GrabModeAsync, GrabModeAsync);
+        bind_key(dpy, root, keybinds[i].keysym, keybinds[i].mod);
     }
 
     // Grab our workspace index keys, we use MOD+SHIFT for assigning workspace (WS 0 is all)
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_0), Mod4Mask|ShiftMask, root, True, GrabModeAsync, GrabModeAsync);
+    bind_key(dpy, root, XK_0, Mod4Mask|ShiftMask);
     for (int i=1; i < 10; i++) {
         ws_add_keybind(dpy, root, i);
     }
 
     // Set up a key to close windows
-    XGrabKey(dpy, XKeysymToKeycode(dpy, XK_q), Mod4Mask, root, True, GrabModeAsync, GrabModeAsync);
+    bind_key(dpy, root, XK_q, Mod4Mask);
 
 
     /* XGrabKey and XGrabButton are basically ways of saying "when this
@@ -168,10 +187,8 @@ int main(void) {
      * XSelectInput with KeyPressMask/ButtonPressMask/etc to catch all events
      * of those types and filter them as you receive them.
      */
-    XGrabButton(dpy, 1, Mod4Mask, root, True,
-            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
-    XGrabButton(dpy, 3, Mod4Mask, root, True,
-            ButtonPressMask|ButtonReleaseMask|PointerMotionMask, GrabModeAsync, GrabModeAsync, None, None);
+    bind_button(dpy, root, 1, Mod4Mask);
+    bind_button(dpy, root, 3, Mod4Mask);
 
     start.subwindow = None;
 
@@ -244,7 +261,7 @@ int main(void) {
             // Check workspace key bindings
             switch(keysym) {
                 case XK_0:
-                    if (ev.xkey.state == (Mod4Mask|ShiftMask)) {
+                    if (matches_w_numlock(ev.xkey.state, Mod4Mask|ShiftMask)) {
                         set_wm_index(dpy, ev.xkey.subwindow, atoi(XKeysymToString(keysym)));
                     }
                     break;
@@ -257,7 +274,7 @@ int main(void) {
                 case XK_7:
                 case XK_8:
                 case XK_9:
-                    if (ev.xkey.state == (Mod4Mask|ShiftMask)) {
+                    if (matches_w_numlock(ev.xkey.state, Mod4Mask|ShiftMask)) {
                         set_wm_index(dpy, ev.xkey.subwindow, atoi(XKeysymToString(keysym)));
                     } else {
                         current_workspace = atoi(XKeysymToString(keysym));
@@ -284,7 +301,8 @@ int main(void) {
 
             // Check our list of bind keys from config.h and exec stuff
             for (unsigned int i=0; i < sizeof(keybinds)/sizeof(*keybinds); ++i){
-                if (keybinds[i].keysym == keysym && keybinds[i].mod == ev.xkey.state){
+                if (keybinds[i].keysym == keysym &&
+                    matches_w_numlock(ev.xkey.state, keybinds[i].mod)) {
                     run_keybind(dpy, keybinds[i].com);
                 }
             }
