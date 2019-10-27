@@ -177,6 +177,7 @@ int main(void) {
 
     // Set up a key to close windows
     bind_key(dpy, root, XK_q, Mod4Mask);
+    bind_key(dpy, root, XK_space, Mod4Mask);
 
 
     /* XGrabKey and XGrabButton are basically ways of saying "when this
@@ -285,18 +286,22 @@ int main(void) {
                     if (ev.xkey.subwindow != None) {
                         // Be polite and try to tell programs to exit
                         int pid = get_wm_pid(dpy, ev.xkey.subwindow);
-                        XDestroyWindow(dpy, ev.xkey.subwindow);
                         XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
-                        XSync(dpy, False);
                         if (pid != 0) {
+                            XDestroyWindow(dpy, ev.xkey.subwindow);
                             kill(pid, SIGTERM);
                         } else {
                             // If it's remote or something dumb... death
                             XKillClient(dpy, ev.xkey.subwindow);
                         }
+                        XSync(dpy, False);
                     }
                     break;
-
+                case XK_space:
+                    if (ev.xkey.subwindow != None) {
+                        XLowerWindow(dpy, ev.xkey.subwindow);
+                    }
+                    break;
             }
 
             // Check our list of bind keys from config.h and exec stuff
