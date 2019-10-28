@@ -19,6 +19,7 @@
 Atom wm_index;
 Atom wm_name;
 Atom wm_pid;
+Atom wm_delete;
 
 
 void win_def_size(Display *d, Window w, unsigned int *width, unsigned int *height) {
@@ -314,16 +315,14 @@ int main(void) {
                 case XK_q:
                     if (ev.xkey.subwindow != None) {
                         // Be polite and try to tell programs to exit
-                        int pid = get_wm_pid(dpy, ev.xkey.subwindow);
-                        XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
-                        if (pid != 0) {
-                            XDestroyWindow(dpy, ev.xkey.subwindow);
-                            kill(pid, SIGTERM);
-                        } else {
-                            // If it's remote or something dumb... death
-                            XKillClient(dpy, ev.xkey.subwindow);
-                        }
-                        XSync(dpy, False);
+                        XEvent event;
+                        event.xclient.type = ClientMessage;
+                        event.xclient.window = ev.xkey.subwindow;
+                        event.xclient.message_type = XInternAtom(dpy, "WM_PROTOCOLS", True);
+                        event.xclient.format = 32;
+                        event.xclient.data.l[0] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+                        event.xclient.data.l[1] = CurrentTime;
+                        XSendEvent(dpy, ev.xkey.subwindow, False, NoEventMask, &event);
                     }
                     break;
                 case XK_space:
@@ -362,6 +361,7 @@ int main(void) {
 
             // Register ourselves for entry events for the window - allows us to surface it on mouseover
             XSelectInput(dpy, ev.xmaprequest.window, EnterWindowMask);
+
             XMapWindow(dpy, ev.xmaprequest.window);
             XFlush(dpy);
 
