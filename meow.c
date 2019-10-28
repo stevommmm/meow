@@ -3,6 +3,7 @@
 #include <X11/XF86keysym.h>
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
+#include <X11/Xutil.h>
 #include <stdlib.h>
 #include <signal.h>
 #include <unistd.h>
@@ -18,6 +19,34 @@
 Atom wm_index;
 Atom wm_name;
 Atom wm_pid;
+
+
+void win_def_size(Display *d, Window w, unsigned int *width, unsigned int *height) {
+    // Set some defaults for small windows
+    *width = 75;
+    *height = 50;
+
+    XSizeHints *sizes;
+    long dummy;
+    sizes = XAllocSizeHints();
+    XGetWMNormalHints(d, w, sizes, &dummy);
+    // program specified minimum size
+    if (sizes->flags & PMinSize) {
+        *width = sizes->min_width;
+        *height = sizes->min_height;
+    }
+    // program specified size
+    if (sizes->flags & PSize) {
+        *width = sizes->width;
+        *height = sizes->height;
+    }
+    // desired size of the window
+    if (sizes->flags & PBaseSize) {
+        *width = sizes->base_width;
+        *height = sizes->base_height;
+    }
+    XFree(sizes);
+}
 
 
 void gen_component_colors(Display *d, Colormap cm, XColor *border, XColor *bg) {
@@ -334,6 +363,11 @@ int main(void) {
             // Register ourselves for entry events for the window - allows us to surface it on mouseover
             XSelectInput(dpy, ev.xmaprequest.window, EnterWindowMask);
             XMapWindow(dpy, ev.xmaprequest.window);
+            XFlush(dpy);
+
+            unsigned int width, height;
+            win_def_size(dpy, ev.xmaprequest.window, &width, &height);
+            XResizeWindow(dpy, ev.xmaprequest.window, width, height);
         } else {
             printf("Unhandled event with type %d\n", ev.type);
         }
