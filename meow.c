@@ -6,11 +6,13 @@
 #include <X11/Xutil.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
 
+#include "meow.h"
 #include "config.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -23,10 +25,8 @@ Atom wm_delete;
 
 
 void win_def_size(Display *d, Window w, unsigned int *width, unsigned int *height) {
-    // Set some defaults for small windows
-    *width = 75;
-    *height = 50;
-
+    *width = 0;
+    *height = 0;
     XSizeHints *sizes;
     long dummy;
     sizes = XAllocSizeHints();
@@ -46,7 +46,14 @@ void win_def_size(Display *d, Window w, unsigned int *width, unsigned int *heigh
         *width = sizes->base_width;
         *height = sizes->base_height;
     }
+
     XFree(sizes);
+
+    if (*width < 75 || *height < 50) {
+        // Set some defaults for small windows
+        *width = 75;
+        *height = 50;
+    }
 }
 
 
@@ -114,11 +121,12 @@ void display_workspace(Display *d, Window root, int workspace_index) {
 }
 
 
-void run_keybind(Display *d, const char **program) {
+void run_command(Display *d, const char **program, bool detach) {
     if (fork()) return;
     if (d) close(ConnectionNumber(d));
-
-    setsid(); // Don't take children with us when we die
+    if (detach){
+        setsid(); // Don't take children with us when we die
+    }
     execvp((char*)program[0], (char**)program);
 }
 
@@ -149,7 +157,28 @@ void ws_add_keybind(Display *d, Window root, int index) {
 }
 
 
-int xerror() { return 0; }
+// int xerror() { return 0; }
+
+int xerror(Display* display, XErrorEvent* e) {
+    if(e->error_code == BadWindow) {
+        return 0;
+    }
+
+    const int MAX_ERROR_TEXT_LENGTH = 1024;
+    char error_text[MAX_ERROR_TEXT_LENGTH];
+    XGetErrorText(display, e->error_code, error_text, sizeof(error_text));
+
+    fprintf(stderr, "meow: xerror: request_code=%d, error_code=%d\t%s\n",
+    e->request_code, e->error_code, error_text);
+
+    return 0;
+}
+
+void run_startup_commands(Display *d) {
+    for (unsigned int i=0; i < sizeof(startup_cmds)/sizeof(*startup_cmds); ++i){
+        run_command(d, startup_cmds[i].com, false);
+    }
+}
 
 
 int main(void) {
@@ -172,6 +201,8 @@ int main(void) {
     XSetErrorHandler(xerror);
     screen = DefaultScreen(dpy);
     root  = RootWindow(dpy, screen);
+
+    run_startup_commands(dpy);
 
     // Attributes for managing workspaces
     int current_workspace = 1;
@@ -336,7 +367,7 @@ int main(void) {
             for (unsigned int i=0; i < sizeof(keybinds)/sizeof(*keybinds); ++i){
                 if (keybinds[i].keysym == keysym &&
                     matches_w_numlock(ev.xkey.state, keybinds[i].mod)) {
-                    run_keybind(dpy, keybinds[i].com);
+                    run_command(dpy, keybinds[i].com, true);
                 }
             }
         }
